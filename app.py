@@ -63,7 +63,18 @@ with st.sidebar:
         type="password",
         help="Used in this session for live Google Jobs and Google Search requests. Never stored in the tracker.",
     )
-    st.markdown("[Get a SerpApi key ↗](https://serpapi.com/)")
+    gemini_key = st.text_input(
+        "Optional Gemini API key",
+        value=os.getenv("GEMINI_API_KEY") or "",
+        type="password",
+        help="Adds model-assisted query planning. Leave empty for the built-in rule-based planner. Model quota may apply.",
+    )
+    gemini_model = st.text_input(
+        "Gemini model",
+        value=os.getenv("GEMINI_MODEL") or "gemini-3.6-flash",
+        help="Change this if your Google AI Studio account uses a different supported model.",
+    )
+    st.markdown("[Get a SerpApi key ↗](https://serpapi.com/) · [Gemini API docs ↗](https://ai.google.dev/gemini-api/docs)")
     st.divider()
     st.markdown("**Agent budget**")
     search_depth = st.slider(
@@ -83,7 +94,7 @@ with st.sidebar:
     st.divider()
     st.markdown(
         "<div class='small-note'>Built with SerpApi Google Jobs + Google Search. "
-        "No LLM key is required for the core agent. Ranking is explainable and deterministic.</div>",
+        "Gemini query planning is optional; the core pipeline works without a model key.</div>",
         unsafe_allow_html=True,
     )
 
@@ -148,7 +159,7 @@ if live_clicked:
     else:
         try:
             with st.spinner("The agent is planning queries, searching jobs, ranking matches, and checking evidence…"):
-                agent = CareerPilotAgent(api_key)
+                agent = CareerPilotAgent(api_key, gemini_api_key=gemini_key, gemini_model=gemini_model)
                 result = agent.run(profile, search_depth=search_depth, verify_top_n=verify_top_n)
                 result["mode"] = "live"
                 result["run_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -188,6 +199,7 @@ if run:
         st.warning("DEMO MODE — every job below is fictional sample data. Switch to live mode with a SerpApi key for real search results.")
     else:
         st.success(f"Live SerpApi run complete · {run.get('api_calls', 0)} request(s) · {run.get('run_at', '')}")
+        st.caption(f"Planner: {run.get('planner', 'Built-in rules')} · model request(s): {run.get('model_calls', 0)}")
 
     verified_count = sum(
         1 for job in jobs
