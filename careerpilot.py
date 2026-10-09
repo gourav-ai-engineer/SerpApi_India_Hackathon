@@ -376,8 +376,10 @@ class SerpApiClient:
 class CareerPilotAgent:
     """A plan → search → normalize → rank → cross-check → report agent pipeline."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, gemini_api_key: str = "", gemini_model: str = ""):
         self.client = SerpApiClient(api_key)
+        self.gemini_api_key = _clean(gemini_api_key)
+        self.gemini_model = _clean(gemini_model) or "gemini-3.6-flash"
 
     @staticmethod
     def build_query_plan(profile: dict[str, Any], depth: int = 2) -> list[str]:
@@ -451,11 +453,31 @@ class CareerPilotAgent:
         verify_top_n: int = 3,
     ) -> dict[str, Any]:
         trace: list[str] = []
-        queries = self.build_query_plan(profile, search_depth)
         raw_jobs: list[dict[str, Any]] = []
         warnings: list[str] = []
         api_calls = 0
+        model_calls = 0
+        planner = "Built-in rules"
 
+        # Optional language-model planning is bounded and validated; the live data always
+        # comes from SerpApi. If the model fails or is not configured, use deterministic queries.
+        queries = self.build_query_plan(profile, search_depth)
+        if self.gemini_api_key:
+            model_calls = 1
+            try:
+                from llm_agent import propose_search_queries
+                queries = propose_search_queries(
+                    profile, self.gemini_api_key, self.gemini_model, max_queries=search_depth
+                )
+                planner = "Gemini · " + self.gemini_model
+                trace.append("PLAN: optional Gemini planner generated " + str(len(queries)) + " validated query variant(s).")
+            except Exception as exc:
+                fallback_message = _clean(str(exc)) or "unknown planner error"
+                warnings.append("Optional Gemini planner unavailable; built-in query planning was used.")
+                trace.append("PLAN FALLBACK: Gemini planner failed (" + fallback_message + "); using built-in rules.")
+                queries = self.build_query_plan(profile, search_depth)
+        else:
+            trace.append("PLAN: Gemini key not configured; using built-in deterministic query planning.")
         trace.append("PLAN: prepared " + str(len(queries)) + " distinct Google Jobs query variant(s).")
         for index, query in enumerate(queries, start=1):
             trace.append(f"SEARCH {index}: Google Jobs query = {query!r}")
@@ -507,6 +529,8 @@ class CareerPilotAgent:
             "trace": trace,
             "query_plan": queries,
             "api_calls": api_calls,
+            "model_calls": model_calls,
+            "planner": planner,
             "warnings": warnings,
             "profile": dict(profile),
         }
