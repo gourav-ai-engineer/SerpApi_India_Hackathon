@@ -1,0 +1,26 @@
+# API keys / local environment
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit / local storage
+.streamlit/config.toml
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
