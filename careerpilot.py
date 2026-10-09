@@ -101,7 +101,8 @@ def normalize_job(raw: dict[str, Any]) -> dict[str, Any]:
             })
 
     share_link = _valid_http_url(raw.get("share_link") or raw.get("link"))
-    apply_url = apply_options[0]["link"] if apply_options else share_link
+    # Do not relabel Google's own job-result link as an employer application URL.
+    apply_url = apply_options[0]["link"] if apply_options else ""
     posted_at = _clean(detected.get("posted_at")) or _extension_value(extensions, "ago")
     schedule_type = _clean(detected.get("schedule_type")) or _extension_value(extensions, "time")
     salary = _clean(detected.get("salary")) or _extension_value(extensions, "₹") or _extension_value(extensions, "$")
