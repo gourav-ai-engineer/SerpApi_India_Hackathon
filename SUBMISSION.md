@@ -30,7 +30,7 @@ CareerPilot's primary workflow depends on two SerpApi engines. Google Jobs suppl
 - Conservative evidence matching: short company words must match a whole hostname label, so names like "X" cannot claim an unrelated site as the employer's careers page.
 - Honest failure reporting: an invalid key or exhausted quota produces a clear error, never a green "complete" banner over an empty result.
 - Security hardening: all search-result text is escaped before rendering (no XSS or injected links), only http(s) links are opened, CSV exports block spreadsheet formulas, `.env` keys are never exposed in UI fields, and the model name is validated before use in a URL.
-- Local SQLite tracking with status lifecycle and notes, shortlist and tracker CSV export, 20 offline tests in CI plus an end-to-end check of the full UI flow against simulated SerpApi responses, and clear error handling.
+- Local SQLite tracking with status lifecycle and notes, shortlist and tracker CSV export, 20 offline tests in CI, and clear error handling.
 - Synthetic data is visibly separated from live search results.
 
 ## AI tooling disclosure draft
