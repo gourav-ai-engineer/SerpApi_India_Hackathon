@@ -28,23 +28,87 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .stApp { background: #0b1020; color: #eef2ff; }
-      [data-testid="stSidebar"] { background: #10182b; border-right: 1px solid #26334f; }
-      [data-testid="stHeader"] { background: rgba(11,16,32,.92); }
-      .hero { padding: 1.2rem 1.4rem; border: 1px solid #293955; border-radius: 18px;
-              background: linear-gradient(115deg,#15243e 0%,#12172a 58%,#1b1931 100%);
-              margin-bottom: 1rem; }
-      .eyebrow { text-transform: uppercase; letter-spacing: .13em; font-size: .76rem;
-                 color: #9fb8ff; font-weight: 700; }
-      .muted { color: #aab6cf; }
-      .job-meta { color: #aab6cf; font-size: .92rem; }
-      .tag { display: inline-block; padding: .2rem .55rem; margin: .15rem .22rem .15rem 0;
-             border: 1px solid #334566; border-radius: 999px; color: #c9d8ff; font-size: .78rem; }
-      div[data-testid="stMetric"] { background: #121b30; border: 1px solid #273653;
-                                    padding: .8rem; border-radius: 12px; }
-      div[data-testid="stVerticalBlockBorderWrapper"] { border-color: #273653 !important; }
-      .small-note { color: #aab6cf; font-size: .83rem; }
-      h1, h2, h3 { letter-spacing: -.025em; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+      :root {
+        --bg: #070b16; --surface: #0e1424; --surface-2: #131b30; --line: #222d47; --line-2: #2e3b5c;
+        --text: #eef2ff; --muted: #9aa7c4; --accent: #7c9cff; --accent-2: #a78bfa;
+        --good: #34d399; --warn: #fbbf24; --bad: #f87171;
+      }
+      html, body, .stApp, [class*="css"] { font-family: 'Inter', system-ui, sans-serif; }
+      .stApp {
+        color: var(--text);
+        background:
+          radial-gradient(900px 500px at 85% -10%, rgba(124,156,255,.14), transparent 60%),
+          radial-gradient(700px 420px at -10% 10%, rgba(167,139,250,.10), transparent 60%),
+          var(--bg);
+      }
+      [data-testid="stHeader"] { background: transparent; }
+      [data-testid="stSidebar"] { background: var(--surface); border-right: 1px solid var(--line); }
+      .block-container { padding-top: 2rem; max-width: 1280px; }
+      h1, h2, h3, h4 { letter-spacing: -.025em; font-weight: 700; }
+      code, pre { font-family: 'JetBrains Mono', monospace !important; }
+
+      .hero { position: relative; overflow: hidden; padding: 2rem 2.2rem; margin-bottom: 1.4rem;
+              border: 1px solid var(--line-2); border-radius: 22px;
+              background: linear-gradient(135deg, rgba(124,156,255,.16), rgba(167,139,250,.08) 45%, rgba(14,20,36,.9)); }
+      .hero::after { content: ""; position: absolute; right: -80px; top: -80px; width: 280px; height: 280px;
+                     border-radius: 50%; background: radial-gradient(circle, rgba(124,156,255,.35), transparent 70%); }
+      .hero h1 { font-size: clamp(1.8rem, 3.2vw, 2.6rem); font-weight: 800; margin: .5rem 0 .4rem;
+                 background: linear-gradient(90deg, #fff, #c7d2fe 60%, #ddd6fe);
+                 -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .eyebrow { display: inline-flex; gap: .5rem; align-items: center; text-transform: uppercase;
+                 letter-spacing: .14em; font-size: .72rem; font-weight: 700; color: #c7d2fe;
+                 padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--line-2);
+                 background: rgba(124,156,255,.08); }
+      .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good);
+                      box-shadow: 0 0 10px var(--good); }
+      .muted { color: var(--muted); }
+      .hero-steps { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+      .hero-steps span { font-size: .8rem; color: var(--muted); padding: .25rem .65rem;
+                         border-radius: 8px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+
+      div[data-testid="stMetric"] { background: var(--surface-2); border: 1px solid var(--line);
+                                    padding: .9rem 1rem; border-radius: 14px; }
+      div[data-testid="stMetricValue"] { font-weight: 800; }
+      div[data-testid="stVerticalBlockBorderWrapper"] { border-color: var(--line) !important; border-radius: 16px !important;
+                                                        background: rgba(14,20,36,.65); transition: border-color .15s, transform .15s; }
+      div[data-testid="stVerticalBlockBorderWrapper"]:hover { border-color: var(--line-2) !important; }
+
+      .stButton > button, .stDownloadButton > button, .stLinkButton > a {
+        border-radius: 10px; font-weight: 600; border: 1px solid var(--line-2); transition: all .15s; }
+      .stButton > button[kind="primary"] { border: 0;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #0b1020; }
+      .stButton > button:hover, .stLinkButton > a:hover { transform: translateY(-1px); border-color: var(--accent); }
+      .stTabs [data-baseweb="tab-list"] { gap: .3rem; border-bottom: 1px solid var(--line); }
+      .stTabs [data-baseweb="tab"] { border-radius: 10px 10px 0 0; padding: .5rem .9rem; font-weight: 600; }
+      input, textarea { border-radius: 10px !important; }
+
+      .job-meta { color: var(--muted); font-size: .92rem; margin-top: -.3rem; }
+      .tag { display: inline-block; padding: .18rem .6rem; margin: .15rem .3rem .15rem 0; border-radius: 999px;
+             font-size: .76rem; font-weight: 600; border: 1px solid var(--line-2); color: #c7d2fe;
+             background: rgba(124,156,255,.08); }
+      .tag.good { color: #a7f3d0; border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.08); }
+      .tag.dim { color: var(--muted); background: transparent; }
+      .score { text-align: center; padding: .55rem .4rem; border-radius: 14px; border: 1px solid; }
+      .score b { display: block; font-size: 1.7rem; font-weight: 800; line-height: 1.1; }
+      .score small { font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; opacity: .8; }
+      .score.high { color: var(--good); border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+      .score.mid { color: var(--warn); border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.07); }
+      .score.low { color: var(--bad); border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.07); }
+      .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin: .4rem 0 .7rem; }
+      .bar > i { display: block; height: 100%; border-radius: 99px;
+                 background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+      .evidence { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600;
+                  padding: .3rem .7rem; border-radius: 10px; border: 1px solid; margin: .2rem 0 .4rem; }
+      .evidence.strong { color: #a7f3d0; border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.07); }
+      .evidence.medium { color: #fde68a; border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.06); }
+      .evidence.weak { color: #fecaca; border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.06); }
+      .small-note { color: var(--muted); font-size: .83rem; }
+      .feature { padding: 1.1rem 1.2rem; border-radius: 16px; border: 1px solid var(--line);
+                 background: rgba(14,20,36,.65); height: 100%; }
+      .feature .n { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: .8rem; }
+      .feature h4 { margin: .3rem 0 .35rem; }
+      .feature p { color: var(--muted); font-size: .9rem; margin: 0; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -118,13 +182,17 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero">
-      <div class="eyebrow">Live search · Explainable ranking · Evidence checks</div>
-      <h1 style="margin:.35rem 0 .2rem 0;">Find your next role with proof, not noise.</h1>
-      <p class="muted" style="max-width:850px;margin-bottom:.15rem;">
+      <div class="eyebrow"><span class="dot"></span>AI job agent · Powered by SerpApi</div>
+      <h1>Find your next role with proof, not noise.</h1>
+      <p class="muted" style="max-width:820px;margin-bottom:.15rem;font-size:1.02rem;">
         CareerPilot plans targeted searches, merges duplicate listings, ranks roles against
         your profile, and searches for employer-careers evidence. It reports uncertainty instead
         of pretending a search snippet proves a job is still open.
       </p>
+      <div class="hero-steps">
+        <span>① Plan queries</span><span>② Search Google Jobs</span><span>③ Merge duplicates</span>
+        <span>④ Rank fit</span><span>⑤ Verify evidence</span><span>⑥ Skill-gap insights</span>
+      </div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -344,16 +412,26 @@ if run:
                         if badges:
                             st.caption(" · ".join(md(badge) for badge in badges))
                     with score_col:
-                        st.metric("FIT", f"{int(job.get('score', 0))}%")
-                    st.progress(max(0, min(100, int(job.get("score", 0)))) / 100)
+                        fit = max(0, min(100, int(job.get("score", 0))))
+                        tier = "high" if fit >= 75 else "mid" if fit >= 50 else "low"
+                        st.markdown(f"<div class='score {tier}'><b>{fit}%</b><small>fit</small></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='bar'><i style='width:{fit}%'></i></div>", unsafe_allow_html=True)
                     matched = job.get("matched_skills") or []
                     missing = job.get("missing_skills") or []
-                    if matched:
-                        st.markdown("**Matched skills:** " + " · ".join(f"‘{md(skill)}’" for skill in matched[:10]))
+                    chips = "".join(f"<span class='tag good'>✓ {escape_html(skill)}</span>" for skill in matched[:10])
+                    chips += "".join(f"<span class='tag dim'>{escape_html(skill)}</span>" for skill in missing[:8])
+                    if chips:
+                        st.markdown(chips, unsafe_allow_html=True)
                     if missing:
-                        st.caption("Profile skills not seen in this listing (not necessarily absent from the actual role): " + md(", ".join(missing[:8])))
+                        st.caption("Grey skills weren't seen in this listing (not necessarily absent from the actual role).")
                     status = str(job.get("verification_status") or "Not independently checked")
-                    st.markdown(f"**Evidence status:** {md(status)}")
+                    lowered = status.casefold()
+                    strength = ("strong", "🛡️") if "careers page found" in lowered else (
+                        ("medium", "🔗") if "related result" in lowered or "application source" in lowered else ("weak", "⚠️"))
+                    st.markdown(
+                        f"<div class='evidence {strength[0]}'>{strength[1]} {escape_html(status)}</div>",
+                        unsafe_allow_html=True,
+                    )
                     description = str(job.get("description") or "")
                     if description:
                         with st.expander("Role details and score explanation"):
@@ -543,7 +621,13 @@ if run:
 else:
     st.markdown("---")
     info_a, info_b, info_c = st.columns(3)
-    info_a.markdown("#### 1 · Discover\nLive structured job results from SerpApi Google Jobs.")
-    info_b.markdown("#### 2 · Investigate\nSearch for employer-careers evidence and keep the source link.")
-    info_c.markdown("#### 3 · Act\nSave promising roles, track statuses, and export a live shortlist.")
+    for col, (num, title, text) in zip((info_a, info_b, info_c), (
+        ("01", "Discover", "Live structured job results from SerpApi Google Jobs, merged across queries and pages."),
+        ("02", "Investigate", "Google Search cross-checks for employer-careers evidence, with the source link kept."),
+        ("03", "Act", "See your skill gaps, save roles, track applications with notes, and export a shortlist."),
+    )):
+        col.markdown(
+            f"<div class='feature'><div class='n'>{num}</div><h4>{title}</h4><p>{text}</p></div>",
+            unsafe_allow_html=True,
+        )
     st.info("Start a live search with a SerpApi key, or explore the clearly labelled synthetic demo workspace first.")

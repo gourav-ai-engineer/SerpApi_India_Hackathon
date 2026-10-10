@@ -14,7 +14,6 @@ venv/
 htmlcov/
 
 # Streamlit / local storage
-.streamlit/config.toml
 data/*.db
 data/*.sqlite
 data/*.sqlite3
