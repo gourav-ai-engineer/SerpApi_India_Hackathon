@@ -12,7 +12,8 @@ The official demo must be shorter than three minutes and should show the app run
 - Open a second terminal in the project folder with the venv active, and pre-type (don't run) `python careerpilot.py "AI Engineer" --skills "Python, RAG" --depth 1 --verify 0`. Use a large font. The app's earlier search warms the cache only inside the app process, so the CLI run makes one real request; trim any wait in editing.
 - Save one role to the tracker beforehand so the tracker isn't empty if you're short on time.
 - Close terminals or editors that might reveal secrets. Keep the sidebar's API-key field masked.
-- Run the live search once before recording to confirm the API key works and that results are returned.
+- Run the live search once before recording to confirm the API key works and that results are returned. You should see a green "Live SerpApi run complete" banner. A red "Live search failed — no SerpApi request succeeded" banner means the key is wrong or out of searches; fix that before recording.
+- Check your remaining searches on the SerpApi dashboard. One app run at the suggested settings (2 queries, 1 page, 3 cross-checks) uses up to 5 searches, and the CLI segment uses 1 more. Identical repeat searches within 15 minutes are served from the cache and cost nothing.
 
 ## Timeline
 
@@ -42,6 +43,16 @@ Switch to the terminal and run the pre-typed command. Point to the trace lines, 
 
 **2:42–2:50 — Close**  
 Show the *Agent trace* (plan → search → pages → rank → check → report). Close with the differentiator: live structured discovery + independent search evidence + explainable ranking + skill-gap insights + a usable tracker, in the browser or the terminal.
+
+## If the red error banner appears while recording
+
+The red "Live search failed" banner shows the first message SerpApi returned, for example "Invalid API key" or a quota message. Don't keep recording through it:
+
+1. Stop the recording.
+2. Fix the cause: paste the correct key in the sidebar, or wait for or upgrade your search quota on serpapi.com.
+3. Re-run the search, confirm the green banner, and restart the recording from 0:00.
+
+Never fall back to demo mode for the submitted video; the rules require live functionality. If you have spare seconds you can mention the banner as a reliability feature ("an expired key produces a clear error, not an empty success screen"), but don't trigger it on purpose; it isn't part of the 2:50 timeline.
 
 ## Recording checks
 
