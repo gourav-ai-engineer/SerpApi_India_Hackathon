@@ -94,6 +94,11 @@ class InsightTests(unittest.TestCase):
             self.assertIn(expected, skills)
         self.assertNotIn("Go", skills)  # short tokens need word boundaries
 
+    def test_llm_spellings_are_one_skill(self):
+        insights = market_insights([{"title": "AI Engineer", "description": "LLM apps"}], {"skills": "LLMs"})
+        self.assertEqual(insights["skill_gaps"], [])
+        self.assertEqual(extract_skills_from_text("LLM and LLMs"), ["LLMs"])
+
     def test_market_insights_reports_gaps(self):
         jobs = [
             {"title": "AI Engineer", "description": "Python, Docker, Kubernetes", "company": "A", "score": 80},

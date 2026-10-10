@@ -22,7 +22,7 @@ st.set_page_config(
     page_title="CareerPilot AI · Job Intelligence",
     page_icon="🧭",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",  # Expanded on desktop, collapsed on phones so it doesn't cover the app.
 )
 
 st.markdown(
@@ -322,8 +322,10 @@ if run:
     metric_cols = st.columns(4)
     metric_cols[0].metric("Unique roles", len(jobs))
     metric_cols[1].metric("Strong fit (75+)", high_fit_count)
-    metric_cols[2].metric("Evidence leads", verified_count if mode == "live" else "—")
-    metric_cols[3].metric("Search calls", run.get("api_calls", 0) if mode == "live" else "0 (demo)")
+    metric_cols[2].metric("Evidence leads", verified_count if mode == "live" else "—",
+                           help="Live mode only: roles with an employer careers page or related corroborating result.")
+    metric_cols[3].metric("Search calls", run.get("api_calls", 0) if mode == "live" else 0,
+                          help=None if mode == "live" else "Demo mode makes no network requests.")
     if run.get("warnings"):
         with st.expander(f"Search warnings ({len(run['warnings'])})", expanded=False):
             for warning in run["warnings"]:
@@ -492,10 +494,29 @@ if run:
             with chart_col:
                 st.markdown("#### Most-requested skills in these results")
                 if insights["top_skills"]:
-                    st.bar_chart(
-                        {item["skill"]: item["jobs"] for item in insights["top_skills"]},
-                        horizontal=True,
-                        x_label="Listings mentioning skill",
+                    # Green = already in your profile, blue = gap; "-x" sorts the most-requested skill to the top.
+                    ranked = insights["top_skills"]
+                    st.vega_lite_chart(
+                        {
+                            "data": {"values": [
+                                {"skill": i["skill"], "jobs": i["jobs"],
+                                 "status": "In your profile" if i["in_profile"] else "Skill gap"}
+                                for i in ranked
+                            ]},
+                            "mark": {"type": "bar", "cornerRadiusEnd": 4},
+                            "encoding": {
+                                "y": {"field": "skill", "type": "nominal", "sort": "-x", "title": None},
+                                "x": {"field": "jobs", "type": "quantitative", "title": "Listings mentioning skill",
+                                      "axis": {"tickMinStep": 1}},
+                                "color": {"field": "status", "type": "nominal", "title": None,
+                                          "scale": {"domain": ["In your profile", "Skill gap"],
+                                                    "range": ["#34d399", "#7c9cff"]},
+                                          "legend": {"orient": "bottom"}},
+                                "tooltip": [{"field": "skill"}, {"field": "jobs", "title": "Listings"},
+                                            {"field": "status"}],
+                            },
+                        },
+                        use_container_width=True,
                     )
                 else:
                     st.caption("No known skills were detected in the listing text.")
@@ -555,15 +576,15 @@ if run:
                         if st.button("Remove", key=f"remove-{job.get('job_id')}"):
                             remove_saved_job(str(job.get("job_id")))
                             st.rerun()
-                    notes = st.text_area(
-                        "Notes (contacts, follow-up dates, interview prep)",
-                        value=job.get("notes", ""),
-                        max_chars=2000,
-                        height=70,
-                        key=f"notes-{job.get('job_id')}",
-                    )
-                    if notes != job.get("notes", ""):
-                        if st.button("Save notes", key=f"save-notes-{job.get('job_id')}"):
+                    # A form keeps the Save button visible; a bare text area only commits on blur.
+                    with st.form(key=f"notes-form-{job.get('job_id')}", border=False):
+                        notes = st.text_area(
+                            "Notes (contacts, follow-up dates, interview prep)",
+                            value=job.get("notes", ""),
+                            max_chars=2000,
+                            height=70,
+                        )
+                        if st.form_submit_button("Save notes"):
                             update_job_notes(str(job.get("job_id")), notes)
                             st.toast("Notes saved.")
                             st.rerun()

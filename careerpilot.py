@@ -348,27 +348,35 @@ SKILL_VOCABULARY = (
 )
 
 
+# Spellings that describe the same skill; keys and values are compared case-insensitively.
+SKILL_ALIASES = {"llm": "LLMs", "llms": "LLMs", "large language models": "LLMs"}
+
+
+def _canonical_skill(skill: str) -> str:
+    return SKILL_ALIASES.get(skill.strip().casefold(), skill.strip())
+
+
 def extract_skills_from_text(text: str, vocabulary: tuple[str, ...] = SKILL_VOCABULARY) -> list[str]:
     """Find known skills in free text such as a pasted resume (no data leaves the machine)."""
     content = _clean(text).casefold()
     found: list[str] = []
     for skill in vocabulary:
-        if _skill_present(skill, content) and skill.casefold() not in {f.casefold() for f in found}:
-            found.append(skill)
+        name = _canonical_skill(skill)
+        if _skill_present(skill, content) and name.casefold() not in {f.casefold() for f in found}:
+            found.append(name)
     return found
 
 
 def market_insights(jobs: list[dict[str, Any]], profile: dict[str, Any], top_n: int = 10) -> dict[str, Any]:
     """Aggregate what the current result set says about demand, gaps, and employers."""
-    profile_skills = {skill.casefold() for skill in _as_skills(profile.get("skills", []))}
+    profile_skills = {_canonical_skill(skill).casefold() for skill in _as_skills(profile.get("skills", []))}
     demand: Counter[str] = Counter()
     companies: Counter[str] = Counter()
     remote = with_salary = fresh = 0
     for job in jobs:
         content = f"{_clean(job.get('title'))} {_clean(job.get('description'))}".casefold()
-        for skill in SKILL_VOCABULARY:
-            if _skill_present(skill, content):
-                demand[skill] += 1
+        # Count each canonical skill once per listing, so "LLM" and "LLMs" don't double-count.
+        demand.update({_canonical_skill(skill) for skill in SKILL_VOCABULARY if _skill_present(skill, content)})
         company = _clean(job.get("company"))
         if company and company != "Company not listed":
             companies[company] += 1
@@ -378,9 +386,6 @@ def market_insights(jobs: list[dict[str, Any]], profile: dict[str, Any], top_n: 
             with_salary += 1
         if _freshness_score(_clean(job.get("posted_at"))) >= 85:
             fresh += 1
-    # "LLM" and "LLMs" describe the same demand; report it once.
-    if demand.get("LLM") and demand.get("LLMs"):
-        demand["LLMs"] = max(demand["LLMs"], demand.pop("LLM"))
     total = len(jobs)
     top_skills = [
         {"skill": skill, "jobs": count, "share": round(100 * count / total) if total else 0,
