@@ -23,6 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
       - name: Compile Python modules
-        run: python -m compileall -q app.py careerpilot.py llm_agent.py storage.py demo_data.py tests
+        run: python -m compileall -q app.py careerpilot.py llm_agent.py storage.py demo_data.py safety.py tests
       - name: Run offline unit tests
         run: python -m unittest discover -s tests -v

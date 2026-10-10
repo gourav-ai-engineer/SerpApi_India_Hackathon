@@ -30,6 +30,13 @@ A Gemini model can optionally propose search queries. Its output is bounded and 
 - CSV export for live shortlists.
 - Visible agent trace showing planning, requests, deduplication, evidence decisions, and warnings.
 - Synthetic offline demo mode, clearly labelled and never presented as live vacancies.
+- **Market insights tab:** most-requested skills across the live result set, your personal skill gaps, top hiring companies, and remote/salary/freshness shares.
+- **Resume skill detection:** paste resume text and CareerPilot detects known skills locally (never sent to any API) and merges them into your profile.
+- **Pagination:** optionally follows SerpApi's `next_page_token` for up to three pages per query.
+- **Quota-saving cache:** identical SerpApi requests within 15 minutes are reused (scoped per API key) and reported separately from billable calls.
+- Sort by fit, freshness, or evidence strength; keyword filter; duplicate-listing counts and alternate application sources.
+- Tracker notes (follow-ups, contacts, interview prep) and tracker CSV export.
+- Headless CLI: `python careerpilot.py "AI Engineer" --location India --skills "Python, RAG" [--json]`.
 - Unit tests that run offline without using API quota.
 
 ## Quick start — Windows PowerShell
@@ -118,7 +125,8 @@ Domain matching is a heuristic. Some genuine employer ATS pages will not be dete
 
 ## Search budget and reliability
 
-- Up to three Google Jobs queries are allowed per run.
+- Up to three Google Jobs queries are allowed per run, each with up to three result pages.
+- Repeated identical requests within 15 minutes are served from an in-memory cache and are not counted as SerpApi calls.
 - Up to eight top results can be checked through Google Search.
 - SerpApi request counts are shown in the UI; Gemini requests are counted separately.
 - If one query fails, the agent records a warning and continues where possible.
@@ -131,6 +139,10 @@ Domain matching is a heuristic. Some genuine employer ATS pages will not be dete
 - Only role-search profile fields are sent for planning/search; do not enter sensitive personal data.
 - Saved roles and statuses are stored locally at data/careerpilot.db by default. Set CAREERPILOT_DB to select another writable path.
 - CareerPilot does not submit applications, message recruiters, or access gated websites.
+- All search-result text is treated as untrusted: it is HTML-escaped or Markdown-escaped before rendering, links are restricted to `http(s)` URLs, and CSV exports neutralize spreadsheet formulas (`=`, `+`, `-`, `@`).
+- Keys from `.env` are used server-side only and are never pre-filled into the sidebar fields, so a deployed app cannot reveal the owner's key to visitors.
+- The Gemini model name is validated before being placed in the API URL; network errors are reported without echoing request details.
+- The SQLite tracker is a single local file. If you deploy the app publicly, every visitor shares it — keep deployments personal or add authentication.
 
 ## Tests
 

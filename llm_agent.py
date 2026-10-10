@@ -12,6 +12,8 @@ from typing import Any
 
 import requests
 
+from safety import is_valid_model_name
+
 DEFAULT_MODEL = "gemini-3.6-flash"
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
@@ -26,11 +28,14 @@ def propose_search_queries(
     if not api_key.strip():
         raise ValueError("Gemini API key was empty.")
     model_name = (model or os.getenv("GEMINI_MODEL") or DEFAULT_MODEL).strip()
+    if not is_valid_model_name(model_name):
+        raise ValueError("Gemini model name contains unsupported characters.")
     limit = max(1, min(3, int(max_queries)))
     brief = {
         "target_role": str(profile.get("role") or profile.get("job_title") or "")[:100],
         "location": str(profile.get("location") or "")[:100],
-        "skills": profile.get("skills", []) if isinstance(profile.get("skills", []), list) else str(profile.get("skills", ""))[:400],
+        "skills": [str(item)[:60] for item in profile.get("skills", [])][:20]
+        if isinstance(profile.get("skills", []), list) else str(profile.get("skills", ""))[:400],
         "experience_years": profile.get("experience_years", 0),
         "work_mode": str(profile.get("work_mode") or "Any")[:40],
     }
@@ -46,21 +51,26 @@ def propose_search_queries(
         + json.dumps(brief, ensure_ascii=False)
     )
     endpoint = GEMINI_ENDPOINT.format(model=model_name)
-    response = requests.post(
-        endpoint,
-        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-        json={
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 350},
-        },
-        timeout=25,
-    )
+    try:
+        response = requests.post(
+            endpoint,
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json={
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 350},
+            },
+            timeout=25,
+        )
+    except requests.RequestException as exc:
+        # Do not echo the exception text: some transport errors include request details.
+        raise RuntimeError("Could not reach the Gemini API.") from exc
     try:
         data = response.json()
     except ValueError as exc:
         raise RuntimeError("Gemini returned a non-JSON response.") from exc
     if response.status_code >= 400:
-        message = data.get("error", {}).get("message", "") if isinstance(data, dict) else ""
+        error = data.get("error") if isinstance(data, dict) else None
+        message = error.get("message", "") if isinstance(error, dict) else str(error or "")
         raise RuntimeError(str(message or f"Gemini returned HTTP {response.status_code}."))
     try:
         text = "\n".join(

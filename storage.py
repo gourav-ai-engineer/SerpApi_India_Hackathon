@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 VALID_STATUSES = ("Saved", "Applied", "Interview", "Offer", "Rejected")
 
@@ -14,7 +15,7 @@ def _db_path() -> Path:
     return Path(os.getenv("CAREERPILOT_DB", "data/careerpilot.db"))
 
 
-def _connect() -> sqlite3.Connection:
+def _open() -> sqlite3.Connection:
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path, timeout=10)
@@ -27,11 +28,26 @@ def _connect() -> sqlite3.Connection:
             location TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'Saved',
             saved_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            job_json TEXT NOT NULL
+            job_json TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT ''
         )"""
     )
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(saved_jobs)")}
+    if "notes" not in columns:  # Migrate databases created by earlier versions.
+        connection.execute("ALTER TABLE saved_jobs ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
     connection.commit()
     return connection
+
+
+@contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
+    """Commit on success, roll back on error, and always close the file handle."""
+    connection = _open()
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def save_job(job: dict[str, Any]) -> None:
@@ -58,7 +74,7 @@ def save_job(job: dict[str, Any]) -> None:
 def list_saved_jobs() -> list[dict[str, Any]]:
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT job_id, status, saved_at, job_json FROM saved_jobs ORDER BY saved_at DESC"
+            "SELECT job_id, status, saved_at, notes, job_json FROM saved_jobs ORDER BY saved_at DESC"
         ).fetchall()
     saved: list[dict[str, Any]] = []
     for row in rows:
@@ -69,6 +85,7 @@ def list_saved_jobs() -> list[dict[str, Any]]:
         job["job_id"] = row["job_id"]
         job["status"] = row["status"]
         job["saved_at"] = row["saved_at"]
+        job["notes"] = row["notes"] or ""
         saved.append(job)
     return saved
 
@@ -81,6 +98,17 @@ def update_job_status(job_id: str, status: str) -> None:
             "UPDATE saved_jobs SET status=? WHERE job_id=?",
             (status, str(job_id)),
         )
+        if cursor.rowcount == 0:
+            raise KeyError("That job is not in the saved-job tracker.")
+
+
+MAX_NOTE_LENGTH = 2000
+
+
+def update_job_notes(job_id: str, notes: str) -> None:
+    text = str(notes or "")[:MAX_NOTE_LENGTH]
+    with _connect() as conn:
+        cursor = conn.execute("UPDATE saved_jobs SET notes=? WHERE job_id=?", (text, str(job_id)))
         if cursor.rowcount == 0:
             raise KeyError("That job is not in the saved-job tracker.")
 

@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+import threading
+import time
+from collections import Counter
 from typing import Any
 from urllib.parse import urlparse
 
@@ -329,8 +332,81 @@ def _looks_like_careers_page(url: str, title: str, snippet: str) -> bool:
     return any(word in combined for word in CAREER_PATH_WORDS)
 
 
+# Curated vocabulary for resume-skill extraction and market-demand analysis. Kept local so
+# the analysis is deterministic, offline, and cannot be steered by search-result content.
+SKILL_VOCABULARY = (
+    "Python", "Java", "JavaScript", "TypeScript", "Go", "Rust", "C++", "C#", "Scala", "Kotlin",
+    "SQL", "NoSQL", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "Snowflake",
+    "FastAPI", "Django", "Flask", "Node.js", "React", "Next.js", "Spring Boot", "GraphQL", "REST",
+    "PyTorch", "TensorFlow", "Keras", "scikit-learn", "Pandas", "NumPy", "Spark", "PySpark",
+    "Hadoop", "Airflow", "Kafka", "dbt", "Machine Learning", "Deep Learning", "NLP",
+    "Computer Vision", "LLMs", "LLM", "RAG", "LangChain", "LlamaIndex", "Hugging Face",
+    "Transformers", "Prompt Engineering", "Fine-tuning", "Vector Database", "MLOps",
+    "Generative AI", "OpenCV", "Statistics", "Data Analysis", "Power BI", "Tableau", "Excel",
+    "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform", "CI/CD", "Git", "Linux",
+    "Microservices", "System Design", "Agile",
+)
+
+
+def extract_skills_from_text(text: str, vocabulary: tuple[str, ...] = SKILL_VOCABULARY) -> list[str]:
+    """Find known skills in free text such as a pasted resume (no data leaves the machine)."""
+    content = _clean(text).casefold()
+    found: list[str] = []
+    for skill in vocabulary:
+        if _skill_present(skill, content) and skill.casefold() not in {f.casefold() for f in found}:
+            found.append(skill)
+    return found
+
+
+def market_insights(jobs: list[dict[str, Any]], profile: dict[str, Any], top_n: int = 10) -> dict[str, Any]:
+    """Aggregate what the current result set says about demand, gaps, and employers."""
+    profile_skills = {skill.casefold() for skill in _as_skills(profile.get("skills", []))}
+    demand: Counter[str] = Counter()
+    companies: Counter[str] = Counter()
+    remote = with_salary = fresh = 0
+    for job in jobs:
+        content = f"{_clean(job.get('title'))} {_clean(job.get('description'))}".casefold()
+        for skill in SKILL_VOCABULARY:
+            if _skill_present(skill, content):
+                demand[skill] += 1
+        company = _clean(job.get("company"))
+        if company and company != "Company not listed":
+            companies[company] += 1
+        if "remote" in f"{content} {_clean(job.get('location'))}".casefold():
+            remote += 1
+        if _clean(job.get("salary")):
+            with_salary += 1
+        if _freshness_score(_clean(job.get("posted_at"))) >= 85:
+            fresh += 1
+    # "LLM" and "LLMs" describe the same demand; report it once.
+    if demand.get("LLM") and demand.get("LLMs"):
+        demand["LLMs"] = max(demand["LLMs"], demand.pop("LLM"))
+    total = len(jobs)
+    top_skills = [
+        {"skill": skill, "jobs": count, "share": round(100 * count / total) if total else 0,
+         "in_profile": skill.casefold() in profile_skills}
+        for skill, count in demand.most_common(top_n)
+    ]
+    return {
+        "total_jobs": total,
+        "top_skills": top_skills,
+        "skill_gaps": [item["skill"] for item in top_skills if not item["in_profile"]][:5],
+        "top_companies": [{"company": c, "jobs": n} for c, n in companies.most_common(top_n)],
+        "remote_share": round(100 * remote / total) if total else 0,
+        "salary_share": round(100 * with_salary / total) if total else 0,
+        "fresh_share": round(100 * fresh / total) if total else 0,
+        "average_fit": round(sum(int(j.get("score", 0)) for j in jobs) / total) if total else 0,
+    }
+
+
 class SerpApiClient:
     """Small official HTTP client for SerpApi; no key is written to disk."""
+
+    #: Process-wide response cache shared by clients; keys never contain the API key itself.
+    _cache: dict[tuple, tuple[float, dict[str, Any]]] = {}
+    _cache_lock = threading.Lock()
+    CACHE_TTL_SECONDS = 15 * 60
+    CACHE_MAX_ENTRIES = 256
 
     def __init__(self, api_key: str, timeout: int = 30):
         if not _clean(api_key):
@@ -338,8 +414,27 @@ class SerpApiClient:
         self.api_key = _clean(api_key)
         self.timeout = timeout
         self.session = requests.Session()
+        self.cache_hits = 0
+        # Scope cached responses to a hash of the key so users never share each other's results.
+        self._key_scope = hashlib.sha256(self.api_key.encode("utf-8")).hexdigest()[:16]
 
     def _search(self, params: dict[str, Any]) -> dict[str, Any]:
+        cache_key = (self._key_scope,) + tuple(sorted((k, str(v)) for k, v in params.items()))
+        now = time.monotonic()
+        with self._cache_lock:
+            cached = self._cache.get(cache_key)
+            if cached and now - cached[0] < self.CACHE_TTL_SECONDS:
+                self.cache_hits += 1
+                return cached[1]
+        data = self._fetch(params)
+        with self._cache_lock:
+            if len(self._cache) >= self.CACHE_MAX_ENTRIES:
+                oldest = min(self._cache, key=lambda key: self._cache[key][0])
+                self._cache.pop(oldest, None)
+            self._cache[cache_key] = (now, data)
+        return data
+
+    def _fetch(self, params: dict[str, Any]) -> dict[str, Any]:
         request_params = dict(params)
         request_params["api_key"] = self.api_key
         try:
@@ -361,8 +456,10 @@ class SerpApiClient:
         except requests.RequestException as exc:
             raise RuntimeError("Could not reach SerpApi. Check the network and try again.") from exc
 
-    def search_jobs(self, query: str, location: str) -> dict[str, Any]:
+    def search_jobs(self, query: str, location: str, next_page_token: str = "") -> dict[str, Any]:
         params: dict[str, Any] = {"engine": "google_jobs", "q": query, "hl": "en", "gl": "in"}
+        if next_page_token:
+            params["next_page_token"] = next_page_token
         if location and location.casefold() not in {"any", "anywhere", "global"}:
             params["location"] = location
         return self._search(params)
@@ -452,6 +549,7 @@ class CareerPilotAgent:
         profile: dict[str, Any],
         search_depth: int = 2,
         verify_top_n: int = 3,
+        pages_per_query: int = 1,
     ) -> dict[str, Any]:
         trace: list[str] = []
         raw_jobs: list[dict[str, Any]] = []
@@ -459,6 +557,11 @@ class CareerPilotAgent:
         api_calls = 0
         model_calls = 0
         planner = "Built-in rules"
+        cache_hits = 0
+        try:
+            pages = max(1, min(3, int(pages_per_query)))
+        except (TypeError, ValueError):
+            pages = 1
 
         # Optional language-model planning is bounded and validated; the live data always
         # comes from SerpApi. If the model fails or is not configured, use deterministic queries.
@@ -482,18 +585,29 @@ class CareerPilotAgent:
         trace.append("PLAN: prepared " + str(len(queries)) + " distinct Google Jobs query variant(s).")
         for index, query in enumerate(queries, start=1):
             trace.append(f"SEARCH {index}: Google Jobs query = {query!r}")
-            try:
-                payload = self.client.search_jobs(query, _clean(profile.get("location")))
-                api_calls += 1
-                found = payload.get("jobs_results") or []
-                if not isinstance(found, list):
-                    found = []
-                trace.append(f"OBSERVE {index}: received {len(found)} structured result(s).")
-                raw_jobs.extend(normalize_job(item) for item in found if isinstance(item, dict))
-            except Exception as exc:  # Surface actionable errors without crashing the interface.
-                message = _clean(str(exc)) or "Unknown search error"
-                warnings.append(message)
-                trace.append(f"WARNING {index}: {message}")
+            token = ""
+            for page in range(1, pages + 1):
+                try:
+                    hits_before = self.client.cache_hits
+                    payload = self.client.search_jobs(query, _clean(profile.get("location")), token)
+                    if self.client.cache_hits > hits_before:
+                        cache_hits += 1
+                    else:
+                        api_calls += 1
+                    found = payload.get("jobs_results") or []
+                    if not isinstance(found, list):
+                        found = []
+                    trace.append(f"OBSERVE {index}.{page}: received {len(found)} structured result(s).")
+                    raw_jobs.extend(normalize_job(item) for item in found if isinstance(item, dict))
+                except Exception as exc:  # Surface actionable errors without crashing the interface.
+                    message = _clean(str(exc)) or "Unknown search error"
+                    warnings.append(message)
+                    trace.append(f"WARNING {index}.{page}: {message}")
+                    break
+                pagination = payload.get("serpapi_pagination") or {}
+                token = _clean(pagination.get("next_page_token")) if isinstance(pagination, dict) else ""
+                if not token or not found:
+                    break
 
         jobs = [score_job(job, profile) for job in deduplicate_jobs(raw_jobs)]
         jobs.sort(key=lambda item: int(item.get("score", 0)), reverse=True)
@@ -501,11 +615,17 @@ class CareerPilotAgent:
 
         checks = max(0, min(int(verify_top_n), len(jobs), 8))
         for index, job in enumerate(jobs[:checks], start=1):
-            query = f'"{job.get("title", "")}" "{job.get("company", "")}" careers jobs'
+            title_q = _clean(job.get("title", "")).replace('"', " ")[:100]
+            company_q = _clean(job.get("company", "")).replace('"', " ")[:80]
+            query = f'"{title_q}" "{company_q}" careers jobs'
             trace.append(f"CHECK {index}: looking for a related employer/careers page for {job.get('company')}.")
             try:
+                hits_before = self.client.cache_hits
                 payload = self.client.search_web(query, _clean(profile.get("location")))
-                api_calls += 1
+                if self.client.cache_hits > hits_before:
+                    cache_hits += 1
+                else:
+                    api_calls += 1
                 self._verify(job, payload)
                 trace.append(f"EVIDENCE {index}: {job.get('verification_status')}.")
             except Exception as exc:
@@ -523,15 +643,73 @@ class CareerPilotAgent:
             else:
                 job["verification_status"] = "Not cross-checked — prioritize manual verification"
 
-        trace.append(f"REPORT: prepared {len(jobs)} ranked result(s); made {api_calls} SerpApi request(s).")
+        trace.append(
+            f"REPORT: prepared {len(jobs)} ranked result(s); made {api_calls} SerpApi request(s)"
+            f" and reused {cache_hits} cached response(s)."
+        )
         trace.append("GUARDRAIL: search evidence is not proof that a job remains open or that an employer is legitimate.")
         return {
             "jobs": jobs,
             "trace": trace,
             "query_plan": queries,
             "api_calls": api_calls,
+            "cache_hits": cache_hits,
+            "insights": market_insights(jobs, profile),
             "model_calls": model_calls,
             "planner": planner,
             "warnings": warnings,
             "profile": dict(profile),
         }
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Headless CLI: ``python careerpilot.py "AI Engineer" --location India --skills "Python, RAG"``."""
+    import argparse
+    import json
+    import os
+
+    parser = argparse.ArgumentParser(description="Run the CareerPilot job-intelligence agent without the UI.")
+    parser.add_argument("role", help="Target role, e.g. 'AI Engineer'")
+    parser.add_argument("--location", default="India")
+    parser.add_argument("--skills", default="", help="Comma-separated skills")
+    parser.add_argument("--work-mode", default="Any", choices=["Any", "Remote", "Hybrid", "On-site"])
+    parser.add_argument("--experience", type=int, default=0)
+    parser.add_argument("--depth", type=int, default=2, help="Query variants (1-3)")
+    parser.add_argument("--pages", type=int, default=1, help="Result pages per query (1-3)")
+    parser.add_argument("--verify", type=int, default=3, help="Top results to cross-check (0-8)")
+    parser.add_argument("--json", action="store_true", help="Print the full run as JSON")
+    args = parser.parse_args(argv)
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+    api_key = os.getenv("SERPAPI_API_KEY") or os.getenv("SERPAPI_KEY") or ""
+    if not api_key:
+        parser.error("Set SERPAPI_API_KEY in the environment or .env file.")
+    profile = {
+        "role": args.role, "location": args.location, "skills": args.skills,
+        "work_mode": args.work_mode, "experience_years": args.experience,
+    }
+    agent = CareerPilotAgent(api_key, os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", ""))
+    result = agent.run(profile, search_depth=args.depth, verify_top_n=args.verify, pages_per_query=args.pages)
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        return 0
+    for line in result["trace"]:
+        print("·", line)
+    print()
+    for rank, job in enumerate(result["jobs"][:15], start=1):
+        print(f"{rank:>2}. [{job['score']:>3}] {job['title']} — {job['company']} ({job['location']})")
+        print(f"      evidence: {job.get('verification_status')}")
+        if job.get("apply_url") or job.get("evidence_url"):
+            print(f"      link: {job.get('apply_url') or job.get('evidence_url')}")
+    gaps = result["insights"]["skill_gaps"]
+    if gaps:
+        print("\nIn-demand skills missing from your profile:", ", ".join(gaps))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
