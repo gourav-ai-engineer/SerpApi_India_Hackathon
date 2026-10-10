@@ -1,0 +1,5 @@
+# Optional: only for tools/record_demo.py and tools/narration.py (demo video + AI voice-over)
+playwright>=1.45,<2.0
+kokoro-onnx>=0.4,<1.0
+soundfile>=0.12,<1.0
+imageio-ffmpeg>=0.5,<1.0

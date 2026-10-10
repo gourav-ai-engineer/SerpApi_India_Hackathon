@@ -17,7 +17,7 @@ The official demo must be shorter than three minutes and should show the app run
 
 ## Automated recording (optional)
 
-`tools/record_demo.py` drives the app in a real browser and records a captioned walkthrough in 14 chapters covering every feature (about 2:28 in practice mode; a live run adds the search time, landing around 2:40–2:55). It also writes a `.chapters.txt` file with each chapter's start time. Narrate it with [VOICEOVER.md](VOICEOVER.md), whose blocks match those chapters.
+`tools/record_demo.py` drives the app in a real browser and records a captioned walkthrough in 14 chapters covering every feature (about 2:28 in practice mode; a live run adds the search time, landing around 2:40–2:55). It also writes a `.chapters.txt` file with each chapter's start time. Add `--voice` to get an MP4 with an AI voice-over built in (see [VOICEOVER.md](VOICEOVER.md)), or narrate it yourself using the same script.
 
     streamlit run app.py                         # terminal 1 (key in .env)
     python -m pip install playwright             # terminal 2, once

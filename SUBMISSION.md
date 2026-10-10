@@ -35,7 +35,7 @@ CareerPilot's primary workflow depends on two SerpApi engines. Google Jobs suppl
 
 ## AI tooling disclosure draft
 
-ChatGPT was used as a coding assistant to help draft the initial implementation, documentation, and tests. Claude Code was used to review the code for security vulnerabilities, implement the fixes, and add the market-insights, resume-skill, pagination, caching, tracker-notes, and CLI features with their tests. The participant reviewed, ran, and remains responsible for the submitted code and claims. Add any other AI tools used during development before submission.
+ChatGPT was used as a coding assistant to help draft the initial implementation, documentation, and tests. Claude Code was used to review the code for security vulnerabilities, implement the fixes, and add the market-insights, resume-skill, pagination, caching, tracker-notes, and CLI features with their tests. The demo video's narration is AI-generated with Kokoro, an open-source offline text-to-speech model, from a script in tools/narration.py. The participant reviewed, ran, and remains responsible for the submitted code and claims. Add any other AI tools used during development before submission.
 
 ## Recording link
 

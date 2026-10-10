@@ -6,6 +6,7 @@ Start the app first (`streamlit run app.py`), then in a second terminal:
     python -m playwright install chromium
     python tools/record_demo.py                # live run: needs SERPAPI_API_KEY in .env
     python tools/record_demo.py --practice     # demo-mode rehearsal, no API calls
+    python tools/record_demo.py --voice        # live run + AI voice-over -> narrated .mp4
 
 The live recording is the one to submit; practice videos use fictional jobs and
 are labelled as such. The video is saved to recordings/ as .webm (YouTube accepts
@@ -82,7 +83,8 @@ def tab(page: Page, name: str) -> None:
     page.get_by_role("tab", name=name).scroll_into_view_if_needed()
 
 
-def record(url: str, practice: bool, out_dir: Path, headless: bool = False, chromium: str | None = None) -> Path:
+def record(url: str, practice: bool, out_dir: Path, headless: bool = False, chromium: str | None = None,
+           narration: dict[str, float] | None = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless, slow_mo=60, executable_path=chromium)
@@ -92,14 +94,25 @@ def record(url: str, practice: bool, out_dir: Path, headless: bool = False, chro
             record_video_size={"width": 1440, "height": 900},
         )
         page = context.new_page()
+        # The video starts with the page, so chapter times are measured from here.
+        clock = time.monotonic()
         page.goto(url)
         page.get_by_text("Run live agent search").wait_for(timeout=60_000)
         settle(page, 1.0)
 
-        clock = time.monotonic()
         chapters: list[tuple[float, str]] = []
+        voice = narration or {}
+
+        def finish_narration() -> None:
+            # Hold the current chapter on screen until its voice-over has finished.
+            if chapters and chapters[-1][1] in voice:
+                start, title = chapters[-1]
+                remaining = start + voice[title] + 0.4 - (time.monotonic() - clock)
+                if remaining > 0:
+                    time.sleep(remaining)
 
         def chapter(title: str) -> None:
+            finish_narration()
             chapters.append((time.monotonic() - clock, title))
 
         # 1. Hook
@@ -243,8 +256,9 @@ def record(url: str, practice: bool, out_dir: Path, headless: bool = False, chro
         page.evaluate("window.scrollTo(0, 0)")
         caption(page, "CareerPilot AI — live discovery, verified evidence, explainable ranking, skill-gap insights", 6)
         caption(page, "Also runs headless: python careerpilot.py \"AI Engineer\" --json", 4)
+        finish_narration()
         caption(page, "")
-        time.sleep(0.5)
+        time.sleep(0.8)
         total = time.monotonic() - clock
 
         video = page.video
@@ -255,8 +269,8 @@ def record(url: str, practice: bool, out_dir: Path, headless: bool = False, chro
     shutil.move(str(source), target)
     # Chapter times help line the narration up with the video (the video starts at page load,
     # so these are offset by the first second or two of loading).
-    lines = [f"{int(t // 60)}:{int(t % 60):02d}  {title}" for t, title in chapters]
-    lines.append(f"{int(total // 60)}:{int(total % 60):02d}  end")
+    lines = [f"{int(t // 60)}:{t % 60:04.1f}  {title}" for t, title in chapters]
+    lines.append(f"{int(total // 60)}:{total % 60:04.1f}  end")
     target.with_suffix(".chapters.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return target
 
@@ -268,9 +282,25 @@ def main() -> None:
     parser.add_argument("--out", default="recordings")
     parser.add_argument("--headless", action="store_true", help="Record without showing the browser window")
     parser.add_argument("--chromium", default=None, help="Path to a Chromium binary (optional)")
+    parser.add_argument("--voice", action="store_true",
+                        help="Add an AI voice-over (Kokoro TTS) and save a narrated MP4")
     args = parser.parse_args()
-    path = record(args.url, args.practice, Path(args.out), args.headless, args.chromium)
+    out = Path(args.out)
+    narration = None
+    if args.voice:
+        import narration as voiceover  # tools/narration.py
+        voice_dir = out / "narration"
+        narration = voiceover.load_durations(voice_dir) or voiceover.generate(voice_dir, out / "models")
+    path = record(args.url, args.practice, out, args.headless, args.chromium, narration)
     print(f"Saved {path}")
+    end = path.with_suffix(".chapters.txt").read_text(encoding="utf-8").strip().splitlines()[-1].split()[0]
+    minutes, seconds = end.split(":")
+    if int(minutes) * 60 + float(seconds) > 178:
+        print(f"WARNING: video is {end} — the hackathon limit is under 3:00. "
+              "Trim the search wait in chapter 4 in an editor, or re-run when SerpApi responds faster.")
+    if args.voice:
+        final = voiceover.mux(path, out / "narration", voiceover.read_chapters(path))
+        print(f"Saved narrated video {final}")
 
 
 if __name__ == "__main__":
