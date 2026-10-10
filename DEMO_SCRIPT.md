@@ -15,6 +15,18 @@ The official demo must be shorter than three minutes and should show the app run
 - Run the live search once before recording to confirm the API key works and that results are returned. You should see a green "Live SerpApi run complete" banner. A red "Live search failed — no SerpApi request succeeded" banner means the key is wrong or out of searches; fix that before recording.
 - Check your remaining searches on the SerpApi dashboard. One app run at the suggested settings (2 queries, 1 page, 3 cross-checks) uses up to 5 searches, and the CLI segment uses 1 more. Identical repeat searches within 15 minutes are served from the cache and cost nothing.
 
+## Automated recording (optional)
+
+`tools/record_demo.py` drives the app in a real browser and records a captioned walkthrough (about 75 seconds): resume skill detection → live agent run → fit-score breakdown → evidence sort → market insights → tracker status and notes → agent trace. Narrate over it, or record the CLI segment separately and join the clips.
+
+    streamlit run app.py                         # terminal 1 (key in .env)
+    python -m pip install playwright             # terminal 2, once
+    python -m playwright install chromium        # once
+    python tools/record_demo.py --practice       # rehearsal with demo data, no API calls
+    python tools/record_demo.py                  # LIVE recording to submit
+
+Videos are saved to `recordings/` (git-ignored) as `.webm`, which YouTube accepts. The live run uses the key from `.env` and never types or shows it. If SerpApi returns an error, the script stops instead of recording a failed run. Only submit the live recording: practice videos contain fictional jobs and are captioned "PRACTICE RUN".
+
 ## Timeline
 
 **0:00–0:15 — Problem and profile**  

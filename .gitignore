@@ -23,3 +23,6 @@ data/*.sqlite3
 Thumbs.db
 .vscode/
 .idea/
+
+# Demo recordings
+recordings/
