@@ -31,7 +31,7 @@ The CLI exits with an argument error if no SerpApi key is set. Because the respo
 
 ## SerpApi response cache
 
-SerpApiClient keeps an in-memory cache of successful responses for 15 minutes, capped at 256 entries (oldest evicted first). The cache key is the sorted request parameters plus a truncated SHA-256 of the API key, so different keys never share results and the key itself is never stored in the key. Cache hits are counted separately from billable `api_calls` in the run result and the UI. Failed requests are not cached. The cache is per process and is lost on restart.
+SerpApiClient keeps an in-memory cache of successful responses for 15 minutes, capped at 256 entries (oldest evicted first). The cache key is the sorted request parameters plus a truncated SHA-256 of the API key, so different keys never share results and the raw key is never part of the cache key. Cache hits are counted separately from billable `api_calls` in the run result and the UI. Failed requests are not cached. The cache is per process and is lost on restart.
 
 ## Market insights and resume skills
 
