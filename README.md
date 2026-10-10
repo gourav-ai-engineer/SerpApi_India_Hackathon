@@ -36,7 +36,7 @@ A Gemini model can optionally propose search queries. Its output is bounded and 
 - **Quota-saving cache:** identical SerpApi requests within 15 minutes are reused (scoped per API key) and reported separately from billable calls.
 - Sort by fit, freshness, or evidence strength; keyword filter; duplicate-listing counts and alternate application sources.
 - Tracker notes (follow-ups, contacts, interview prep) and tracker CSV export.
-- Headless CLI: `python careerpilot.py "AI Engineer" --location India --skills "Python, RAG" [--json]`.
+- **Headless CLI:** run the same agent from a terminal with `python careerpilot.py "AI Engineer" --skills "Python, RAG"` and get a ranked shortlist with evidence status and skill gaps, or full JSON with `--json` for scripting. See [Command-line usage](#command-line-usage).
 - Unit tests that run offline without using API quota.
 
 ## Quick start — Windows PowerShell
@@ -133,7 +133,7 @@ Examples:
 
 Key files:
 - **app.py** — Streamlit interface, result cards, tracker, CSV export, trace.
-- **careerpilot.py** — SerpApi client, job normalization, query plan, scoring, deduplication, evidence checks.
+- **careerpilot.py** — SerpApi client, job normalization, query plan, scoring, deduplication, evidence checks, market insights, and the CLI entry point.
 - **llm_agent.py** — optional Gemini planner with output validation.
 - **storage.py** — SQLite saved-job and application-status persistence.
 - **demo_data.py** — fictional offline samples.
