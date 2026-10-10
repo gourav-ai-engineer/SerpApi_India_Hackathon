@@ -11,3 +11,7 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+[client]
+# Hide the developer toolbar ("Deploy" button) so toasts don't overlap it.
+toolbarMode = "viewer"

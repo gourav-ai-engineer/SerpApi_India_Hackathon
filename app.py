@@ -104,6 +104,11 @@ st.markdown(
       .evidence.medium { color: #fde68a; border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.06); }
       .evidence.weak { color: #fecaca; border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.06); }
       .small-note { color: var(--muted); font-size: .83rem; }
+      .demo-banner { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; margin: .3rem 0 .9rem;
+                     border-radius: 14px; border: 1px solid rgba(167,139,250,.35); color: #ddd6fe; font-size: .92rem;
+                     background: linear-gradient(90deg, rgba(167,139,250,.14), rgba(124,156,255,.06)); }
+      .demo-banner .pill { flex: none; font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+                           padding: .22rem .55rem; border-radius: 999px; color: #0b1020; background: var(--accent-2); }
       .feature { padding: 1.1rem 1.2rem; border-radius: 16px; border: 1px solid var(--line);
                  background: rgba(14,20,36,.65); height: 100%; }
       .feature .n { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: .8rem; }
@@ -305,7 +310,11 @@ if run:
     jobs = run.get("jobs", [])
     mode = run.get("mode", "demo")
     if mode == "demo":
-        st.warning("DEMO MODE — every job below is fictional sample data. Switch to live mode with a SerpApi key for real search results.")
+        st.markdown(
+            "<div class='demo-banner'><span class='pill'>Demo mode</span>"
+            "Every job below is fictional sample data. Add a SerpApi key and run a live search for real results.</div>",
+            unsafe_allow_html=True,
+        )
     else:
         st.success(
             f"Live SerpApi run complete · {run.get('api_calls', 0)} request(s)"
@@ -576,18 +585,24 @@ if run:
                         if st.button("Remove", key=f"remove-{job.get('job_id')}"):
                             remove_saved_job(str(job.get("job_id")))
                             st.rerun()
-                    # A form keeps the Save button visible; a bare text area only commits on blur.
-                    with st.form(key=f"notes-form-{job.get('job_id')}", border=False):
-                        notes = st.text_area(
-                            "Notes (contacts, follow-up dates, interview prep)",
-                            value=job.get("notes", ""),
-                            max_chars=2000,
-                            height=70,
-                        )
-                        if st.form_submit_button("Save notes"):
-                            update_job_notes(str(job.get("job_id")), notes)
-                            st.toast("Notes saved.")
-                            st.rerun()
+                    saved_notes = job.get("notes", "")
+                    notes_label = "📝 Notes" + (f" · {saved_notes[:60]}{'…' if len(saved_notes) > 60 else ''}" if saved_notes else " · add contacts, follow-ups, interview prep")
+                    # Collapsed by default so long trackers stay compact; the preview shows saved notes at a glance.
+                    with st.expander(md(notes_label)):
+                        # A form keeps the Save button visible; a bare text area only commits on blur.
+                        with st.form(key=f"notes-form-{job.get('job_id')}", border=False):
+                            notes = st.text_area(
+                                "Notes",
+                                value=saved_notes,
+                                max_chars=2000,
+                                height=90,
+                                label_visibility="collapsed",
+                                placeholder="Recruiter contact, follow-up date, interview prep…",
+                            )
+                            if st.form_submit_button("Save notes"):
+                                update_job_notes(str(job.get("job_id")), notes)
+                                st.toast("Notes saved.")
+                                st.rerun()
             tracker_csv = io.StringIO()
             tracker_columns = ["title", "company", "location", "status", "saved_at", "score", "apply_url", "notes"]
             tracker_writer = csv.DictWriter(tracker_csv, fieldnames=tracker_columns, extrasaction="ignore")
