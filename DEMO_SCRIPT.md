@@ -17,7 +17,7 @@ The official demo must be shorter than three minutes and should show the app run
 
 ## Automated recording (optional)
 
-`tools/record_demo.py` drives the app in a real browser and records a captioned walkthrough (about 75 seconds): resume skill detection → live agent run → fit-score breakdown → evidence sort → market insights → tracker status and notes → agent trace. Narrate over it, or record the CLI segment separately and join the clips.
+`tools/record_demo.py` drives the app in a real browser and records a captioned walkthrough in 14 chapters covering every feature (about 2:28 in practice mode; a live run adds the search time, landing around 2:40–2:55). It also writes a `.chapters.txt` file with each chapter's start time. Narrate it with [VOICEOVER.md](VOICEOVER.md), whose blocks match those chapters.
 
     streamlit run app.py                         # terminal 1 (key in .env)
     python -m pip install playwright             # terminal 2, once
