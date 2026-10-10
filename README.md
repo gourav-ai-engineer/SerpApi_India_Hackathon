@@ -89,6 +89,34 @@ The planner can suggest relevant query variants, but the app checks query length
 5. Inspect job details, matched/missing skill mentions, score components, evidence labels, and source links.
 6. Save roles to the application tracker, change their status, and export the live shortlist as CSV.
 
+## Command-line usage
+
+The same agent runs without the UI, which is useful for scripting, cron jobs, or piping results into other tools. It reads `SERPAPI_API_KEY` (and the optional `GEMINI_API_KEY` / `GEMINI_MODEL`) from the environment or `.env`.
+
+    python careerpilot.py "AI Engineer" --location India --skills "Python, FastAPI, RAG"
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `role` (positional) | — | Target role, e.g. `"AI Engineer"` |
+| `--location` | `India` | Preferred location; `Anywhere` disables the location filter |
+| `--skills` | empty | Comma-separated skills used for fit scoring and skill-gap analysis |
+| `--work-mode` | `Any` | `Any`, `Remote`, `Hybrid`, or `On-site` |
+| `--experience` | `0` | Years of relevant experience (affects seniority fit) |
+| `--depth` | `2` | Google Jobs query variants (1–3) |
+| `--pages` | `1` | Result pages per query via `next_page_token` (1–3) |
+| `--verify` | `3` | Top results to cross-check with Google Search (0–8) |
+| `--json` | off | Print the full run (jobs, trace, query plan, insights, warnings) as JSON |
+
+The default output prints the agent trace, the top 15 ranked jobs with fit score, evidence status, and link, followed by in-demand skills missing from your profile. A run makes at most `depth × pages + verify` SerpApi requests; repeated identical requests within the same process are served from cache.
+
+Examples:
+
+    # Remote roles, more results, no cross-checks (fewer credits)
+    python careerpilot.py "Data Scientist" --work-mode Remote --pages 2 --verify 0
+
+    # Save machine-readable output
+    python careerpilot.py "ML Engineer" --skills "PyTorch, MLOps" --json > results.json
+
 ## Architecture
 
     Candidate profile
