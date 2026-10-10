@@ -25,7 +25,7 @@ The CLI exits with an argument error if no SerpApi key is set. Because the respo
 3. The SerpApi client calls Google Jobs for each query, optionally following `serpapi_pagination.next_page_token` for up to three pages per query (stopping early when a page is empty or has no token). Request limits, errors, cache reuse, and returned result counts are visible in the trace.
 4. A normalizer converts search results into a consistent schema. The deduplicator groups records by normalized employer, title, and location, merging application options instead of blindly duplicating cards.
 5. The ranker calculates independent score components and stores the breakdown on each result.
-6. Up to eight top-ranked jobs are cross-checked through SerpApi Google Search. Domain and career-page text are signals, not authoritative validation; labels preserve that uncertainty.
+6. Up to eight top-ranked jobs are cross-checked through SerpApi Google Search. Domain and career-page text are signals, not authoritative validation; labels preserve that uncertainty. A company word of three or more characters may match anywhere in the hostname; a shorter word must equal a whole hostname label (split on "." and "-"), which prevents single letters from matching unrelated domains.
 7. Market insights are aggregated from the ranked result set (see below).
 8. Results are displayed with source provenance and can be exported as CSV or saved to SQLite (UI), or printed as text or JSON (CLI).
 
@@ -38,7 +38,8 @@ SerpApiClient keeps an in-memory cache of successful responses for 15 minutes, c
 Both use a fixed, curated SKILL_VOCABULARY in careerpilot.py, so the analysis is deterministic, offline, and cannot be steered by search-result text.
 
 - `market_insights(jobs, profile)` counts how many listings mention each vocabulary skill, then reports the top skills with their share of listings, skill gaps (top skills absent from the profile, up to five), top hiring companies, the share of listings mentioning remote work, showing a salary, or posted within about a week, and the average fit score. Shares describe only the current result set, not the wider market.
-- `extract_skills_from_text(text)` matches pasted resume text against the same vocabulary. Short skills (three characters or fewer, such as Go or SQL) require word boundaries. Resume text stays in the Streamlit session; it is not sent to SerpApi or Gemini and not stored.
+- `extract_skills_from_text(text)` matches pasted resume text against the same vocabulary. Short skills (three characters or fewer, such as Go or SQL) require word boundaries.
+- SKILL_ALIASES maps equivalent spellings (LLM, LLMs, large language models) to one canonical name. Demand is counted once per listing per canonical skill, and profile skills are canonicalised before gaps are computed, so a profile listing "LLMs" never shows "LLM" as a gap. Resume text stays in the Streamlit session; it is not sent to SerpApi or Gemini and not stored.
 
 ## Normalized job fields
 
@@ -75,6 +76,7 @@ API keys from `.env` are used server-side and never pre-filled into password wid
 
 - Missing SerpApi credentials: live searches are blocked with an explicit UI error; the CLI exits with an argument error.
 - Search failure on one query: the run records a warning and continues with other query results.
+- Every SerpApi request failed (no successful or cached response): the UI shows an error with the first SerpApi message rather than a success banner.
 - Gemini disabled or unavailable: use deterministic search planning.
 - Verification failure: mark the result as requiring manual review; do not invent proof.
 - Empty results: show an empty state, not fabricated live jobs.

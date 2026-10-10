@@ -41,7 +41,7 @@ A Gemini model can optionally propose search queries. Its output is bounded and 
 
 ## Quick start — Windows PowerShell
 
-Use Python 3.11 or newer. From the repository folder:
+Use Python 3.11 or newer. Streamlit 1.50 or newer is required; if you installed an earlier version, re-run `python -m pip install -r requirements.txt`. From the repository folder:
 
     py -m venv .venv
     .\.venv\Scripts\Activate.ps1
@@ -137,7 +137,9 @@ Key files:
 - **llm_agent.py** — optional Gemini planner with output validation.
 - **storage.py** — SQLite saved-job and application-status persistence.
 - **demo_data.py** — fictional offline samples.
-- **tests/test_core.py** — offline tests.
+- **safety.py** — escaping and validation helpers for untrusted search and model output.
+- **tests/test_core.py**, **tests/test_security_and_features.py** — offline tests (20 in total).
+- **.streamlit/config.toml** — dark theme and UI settings (hides Streamlit's developer toolbar).
 
 ## Score and evidence labels
 
@@ -149,7 +151,15 @@ Evidence labels are intentionally conservative:
 - **Application source surfaced:** Google Jobs supplied an application option; review it before use.
 - **Needs manual verification:** evidence was unavailable or weak.
 
-Domain matching is a heuristic. Some genuine employer ATS pages will not be detected, and some search results may be stale. Users must review sources manually.
+Domain matching is a heuristic. Company words of three or more letters may appear anywhere in the hostname; shorter words (for example "EY" or "X") must equal a whole hostname label such as `careers.ey.com`, so they cannot accidentally match unrelated sites. Some genuine employer ATS pages will not be detected, and some search results may be stale. Users must review sources manually.
+
+## Interface
+
+- Dark theme defined in `.streamlit/config.toml`, with colour-coded fit scores (green 75+, amber 50–74, red below 50), skill chips, and evidence badges.
+- The skill-demand chart is sorted by demand and colour-coded: green skills are already in your profile, blue skills are gaps.
+- Skill spellings such as "LLM", "LLMs", and "large language models" are treated as one skill, so they are never reported as a gap when your profile uses another spelling.
+- Tracker notes are collapsed by default, show a short preview when saved, and have an always-visible Save button.
+- The sidebar opens by default on desktop and starts collapsed on phones.
 
 ## Search budget and reliability
 
@@ -158,6 +168,7 @@ Domain matching is a heuristic. Some genuine employer ATS pages will not be dete
 - Up to eight top results can be checked through Google Search.
 - SerpApi request counts are shown in the UI; Gemini requests are counted separately.
 - If one query fails, the agent records a warning and continues where possible.
+- If every SerpApi request fails (invalid key, exhausted quota, or network error), the app shows a red error with the first SerpApi message instead of a "run complete" banner.
 - A live-search failure is never silently replaced with sample data.
 
 ## Privacy and security
