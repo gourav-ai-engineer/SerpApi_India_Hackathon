@@ -253,9 +253,9 @@ profile = {
 
 action_a, action_b, action_c = st.columns([1.2, 1, 2])
 with action_a:
-    live_clicked = st.button("🔎 Run live agent search", type="primary", use_container_width=True)
+    live_clicked = st.button("🔎 Run live agent search", type="primary", width="stretch")
 with action_b:
-    demo_clicked = st.button("✨ Explore demo workspace", use_container_width=True)
+    demo_clicked = st.button("✨ Explore demo workspace", width="stretch")
 with action_c:
     st.caption("Live mode uses SerpApi. Demo mode uses fictional examples and never represents live vacancies.")
 
@@ -314,6 +314,12 @@ if run:
             "<div class='demo-banner'><span class='pill'>Demo mode</span>"
             "Every job below is fictional sample data. Add a SerpApi key and run a live search for real results.</div>",
             unsafe_allow_html=True,
+        )
+    elif not jobs and run.get("warnings") and not run.get("api_calls") and not run.get("cache_hits"):
+        # Every search failed (bad key, quota, network): say so plainly instead of a green "complete".
+        st.error(
+            "Live search failed — no SerpApi request succeeded. "
+            f"First error: {md(run['warnings'][0])} Check your API key and remaining searches at serpapi.com."
         )
     else:
         st.success(
@@ -470,7 +476,7 @@ if run:
                                         st.markdown(f"- {md(option.get('title') or 'Source')} — `{md(link)[:120]}`")
                     job_actions = st.columns([1, 1, 4])
                     with job_actions[0]:
-                        if st.button("Save to tracker", key=f"save-{index}-{job.get('job_id')}", use_container_width=True):
+                        if st.button("Save to tracker", key=f"save-{index}-{job.get('job_id')}", width="stretch"):
                             try:
                                 save_job(job)
                                 st.toast("Saved to application tracker.")
@@ -481,11 +487,11 @@ if run:
                         share_url = safe_http_url(job.get("share_url"))
                         target_url = apply_url or (share_url if mode == "live" else "")
                         if target_url and mode == "live":
-                            st.link_button("Open source ↗", target_url, use_container_width=True)
+                            st.link_button("Open source ↗", target_url, width="stretch")
                         elif mode == "demo":
-                            st.button("Sample only", key=f"sample-{index}-{job.get('job_id')}", disabled=True, use_container_width=True)
+                            st.button("Sample only", key=f"sample-{index}-{job.get('job_id')}", disabled=True, width="stretch")
                         else:
-                            st.button("No direct link", key=f"nolink-{index}-{job.get('job_id')}", disabled=True, use_container_width=True)
+                            st.button("No direct link", key=f"nolink-{index}-{job.get('job_id')}", disabled=True, width="stretch")
 
     with tab_insights:
         insights = run.get("insights") or market_insights(jobs, run.get("profile") or profile)
@@ -525,7 +531,7 @@ if run:
                                             {"field": "status"}],
                             },
                         },
-                        use_container_width=True,
+                        width="stretch",
                     )
                 else:
                     st.caption("No known skills were detected in the listing text.")

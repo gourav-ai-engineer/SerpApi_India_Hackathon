@@ -87,6 +87,14 @@ class ClientTests(unittest.TestCase):
         self.assertIn("Invalid API key.", result["warnings"])
 
 
+class EvidenceTests(unittest.TestCase):
+    def test_short_company_word_does_not_match_unrelated_domain(self):
+        from careerpilot import _is_probable_company_domain
+        self.assertFalse(_is_probable_company_domain("X Corp", "acme.example"))
+        self.assertTrue(_is_probable_company_domain("EY", "careers.ey.com"))
+        self.assertTrue(_is_probable_company_domain("Acme Labs", "jobs.acme.example"))
+
+
 class InsightTests(unittest.TestCase):
     def test_resume_skill_extraction(self):
         skills = extract_skills_from_text("Built RAG apps in Python with Docker on AWS; some SQL.")

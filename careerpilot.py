@@ -323,8 +323,12 @@ def _company_terms(company: str) -> list[str]:
 
 def _is_probable_company_domain(company: str, hostname: str) -> bool:
     host = hostname.casefold().removeprefix("www.")
-    terms = _company_terms(company)
-    return any(term in host for term in terms)
+    labels = set(re.split(r"[.-]", host))
+    # Short terms ("x", "ey") would substring-match almost any host, so they must equal a whole label.
+    return any(
+        (term in host) if len(term) >= 3 else (term in labels)
+        for term in _company_terms(company)
+    )
 
 
 def _looks_like_careers_page(url: str, title: str, snippet: str) -> bool:
